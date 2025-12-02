@@ -1,27 +1,28 @@
 import express from "express";
 import cors from "cors";
-import { db } from "./firebase.js";
-import { ref, set } from "firebase/database";
 import admin from "firebase-admin";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Inicializar Firebase Admin con variables de entorno (Render)
 admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
-    databaseURL: "https://rastreo-gps-f15f7-default-rtdb.firebaseio.com"
-  });
+  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+  databaseURL: process.env.FIREBASE_DATABASE_URL
+});
+
+const db = admin.database();
 
 app.post("/gps", async (req, res) => {
   const { lat, lng } = req.body;
 
-  if (!lat || !lng) {
+  if (lat === undefined || lng === undefined) {
     return res.status(400).json({ error: "Datos GPS incompletos" });
   }
 
   try {
-    await set(ref(db, "vehiculo1"), {
+    await db.ref("vehiculo1").set({
       lat,
       lng,
       timestamp: Date.now(),
@@ -29,13 +30,13 @@ app.post("/gps", async (req, res) => {
 
     res.json({ status: "OK" });
   } catch (error) {
-    console.error(error);
+    console.error("Error Firebase:", error);
     res.status(500).json({ error: "Error guardando datos" });
   }
 });
 
 app.get("/", (req, res) => {
-  res.send("Backend GPS activo 🚀");
+  res.send("Backend GPS activo");
 });
 
 const PORT = process.env.PORT || 4000;
