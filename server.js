@@ -2,10 +2,16 @@ import express from "express";
 import cors from "cors";
 import { db } from "./firebase.js";
 import { ref, set } from "firebase/database";
+import admin from "firebase-admin";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+admin.initializeApp({
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    databaseURL: "https://rastreo-gps-f15f7-default-rtdb.firebaseio.com"
+  });
 
 app.post("/gps", async (req, res) => {
   const { lat, lng } = req.body;
