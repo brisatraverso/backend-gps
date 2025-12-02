@@ -6,9 +6,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Inicializar Firebase Admin con variables de entorno (Render)
 admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  }),
   databaseURL: process.env.FIREBASE_DATABASE_URL
 });
 
