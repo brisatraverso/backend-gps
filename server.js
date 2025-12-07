@@ -3,6 +3,9 @@ import admin from "firebase-admin";
 import dotenv from "dotenv";
 dotenv.config();
 
+/* -----------------------------------------
+   CONFIG FIREBASE ADMIN
+------------------------------------------ */
 const serviceAccount = {
   type: process.env.FIREBASE_TYPE,
   project_id: process.env.FIREBASE_PROJECT_ID,
@@ -16,11 +19,18 @@ const serviceAccount = {
   client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT,
 };
 
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: process.env.FIREBASE_DB_URL,
+});
+
 const db = admin.database();
 const app = express();
 app.use(express.json());
 
-// Util: formatea YYYY-MM-DD
+/* -----------------------------------------
+   UTIL: FORMATEAR FECHA
+------------------------------------------ */
 function formatDateYYYYMMDD(ts = Date.now()) {
   const d = new Date(ts);
   const y = d.getFullYear();
@@ -29,23 +39,18 @@ function formatDateYYYYMMDD(ts = Date.now()) {
   return `${y}-${m}-${day}`;
 }
 
-/* ---------------------------------------------------------
-   POST /gps
-   Ahora también recibe acelerómetro: ax, ay, az
---------------------------------------------------------- */
+/* -----------------------------------------
+   POST /gps — ahora con acelerómetro
+------------------------------------------ */
 app.post("/gps", async (req, res) => {
   try {
     const { lat, lng, ax, ay, az, deviceId } = req.body;
 
-    if (typeof lat !== "number" && typeof lat !== "string") {
-      return res.status(400).json({ error: "Faltan datos GPS: lat" });
-    }
-    if (typeof lng !== "number" && typeof lng !== "string") {
-      return res.status(400).json({ error: "Faltan datos GPS: lng" });
-    }
+    if (!lat) return res.status(400).json({ error: "Falta lat" });
+    if (!lng) return res.status(400).json({ error: "Falta lng" });
 
     const timestamp = Date.now();
-    const id = deviceId ? String(deviceId) : "vehiculo1";
+    const id = deviceId || "vehiculo1";
 
     const point = {
       lat: Number(lat),
@@ -57,40 +62,32 @@ app.post("/gps", async (req, res) => {
       deviceId: id,
     };
 
-    // Posición actual
+    // Última posición
     await db.ref(id).set(point);
 
-    // Historial
+    // Historial diario
     const date = formatDateYYYYMMDD(timestamp);
     await db.ref(`historial/${id}/${date}/${timestamp}`).set(point);
 
-    return res.json({ status: "OK", saved: point });
+    res.json({ status: "OK", saved: point });
   } catch (err) {
     console.error("Error en /gps:", err);
-    return res.status(500).json({ error: "Error interno" });
+    res.status(500).json({ error: "Error interno" });
   }
 });
 
-/* ---------------------------------------------------------
-   ENDPOINT OPCIONAL
-   /accel → guardar acelerómetro por separado si lo necesitás
---------------------------------------------------------- */
+/* -----------------------------------------
+   POST /accel — opcional
+------------------------------------------ */
 app.post("/accel", async (req, res) => {
   try {
     const { ax, ay, az, deviceId } = req.body;
 
-    const id = deviceId ? String(deviceId) : "vehiculo1";
+    const id = deviceId || "vehiculo1";
     const timestamp = Date.now();
-
-    const accel = {
-      ax: Number(ax),
-      ay: Number(ay),
-      az: Number(az),
-      timestamp,
-      deviceId: id,
-    };
-
     const date = formatDateYYYYMMDD(timestamp);
+
+    const accel = { ax: Number(ax), ay: Number(ay), az: Number(az), timestamp };
 
     await db.ref(`acelerometro/${id}/${date}/${timestamp}`).set(accel);
 
@@ -101,7 +98,7 @@ app.post("/accel", async (req, res) => {
   }
 });
 
-app.get("/", (req, res) => res.send("Backend GPS con historial + acelerómetro activo"));
+app.get("/", (req, res) => res.send("Backend GPS con acelerómetro activo"));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server en puerto ${PORT}`));
